@@ -131,6 +131,14 @@ def select_interview_topics(candidate: dict[str, Any]):
 
     return selected_topics
 
+def get_topic_for_question(
+    interview_topics: list[dict[str, Any]],
+    question_number: int
+):
+    topic_index = (question_number - 1) // 2
+
+    return interview_topics[topic_index]
+
 
 # -------------------------------------------------
 # GROQ QUESTION GENERATION
@@ -138,40 +146,39 @@ def select_interview_topics(candidate: dict[str, Any]):
 
 def generate_first_question(
     candidate: dict[str, Any],
-    interview_topics: list[dict[str, Any]]
+    target_topic: dict[str, Any]
 ):
     member = candidate.get("member", {})
 
     candidate_name = member.get("name", "Candidate")
     job_role = member.get("jobRole", "Unknown")
 
-    topics_text = json.dumps(
-        interview_topics,
+    topic_text = json.dumps(
+        target_topic,
         indent=2
     )
 
     system_prompt = """
 You are an adaptive technical interviewer for a 31-day AI engineering cohort.
 
-Your goal is to evaluate the candidate's real technical understanding.
+Ask exactly ONE technical interview question.
 
 Rules:
-- Ask exactly ONE technical interview question.
-- Base the question on the provided curriculum topics.
+- Ask only about the provided curriculum topic.
 - Consider the candidate's learning performance.
 - Keep the question clear and concise.
-- Do not explain why you selected the question.
 - Do not provide the answer.
-- Do not give feedback yet.
-- Do not ask multiple questions at once.
+- Do not give feedback.
+- Do not explain your reasoning.
+- Return only the question text.
 """
 
     user_prompt = f"""
 Candidate: {candidate_name}
 Role: {job_role}
 
-Selected curriculum topics:
-{topics_text}
+Target curriculum topic:
+{topic_text}
 
 Ask the first technical interview question.
 """
@@ -195,8 +202,8 @@ Ask the first technical interview question.
 
 def generate_follow_up_question(
     candidate: dict[str, Any],
-    interview_topics: list[dict[str, Any]],
-    messages: list[dict[str, str]],
+    target_topic: dict[str, Any],
+    messages: list[dict[str, Any]],
     question_count: int
 ):
     member = candidate.get("member", {})
@@ -204,8 +211,8 @@ def generate_follow_up_question(
     candidate_name = member.get("name", "Candidate")
     job_role = member.get("jobRole", "Unknown")
 
-    topics_text = json.dumps(
-        interview_topics,
+    topic_text = json.dumps(
+        target_topic,
         indent=2
     )
 
@@ -214,22 +221,22 @@ def generate_follow_up_question(
         indent=2
     )
 
+    next_question_number = question_count + 1
+
     system_prompt = """
 You are an adaptive technical interviewer for a 31-day AI engineering cohort.
 
-Your goal is to evaluate the candidate's real technical understanding.
+Ask exactly ONE technical interview question.
 
-Use the candidate's previous answers to decide whether to:
-- ask a deeper follow-up question on the current topic, or
-- move to another selected curriculum topic.
+Use the candidate's previous answer to adapt the question.
 
 Rules:
-- Ask exactly ONE technical interview question.
-- Base questions only on the provided curriculum topics.
-- Adapt the difficulty based on the candidate's previous answers.
-- Cover the selected curriculum topics across the interview.
+- Ask only about the provided target curriculum topic.
+- If this topic was used in the previous question, ask an adaptive follow-up based on the candidate's answer.
+- Probe deeper when the answer is incomplete or shallow.
+- Adjust difficulty based on the candidate's demonstrated understanding.
 - Do not provide the answer.
-- Do not give final feedback yet.
+- Do not give final feedback.
 - Do not explain your reasoning.
 - Return only the question text.
 """
@@ -238,13 +245,13 @@ Rules:
 Candidate: {candidate_name}
 Role: {job_role}
 
-Selected curriculum topics:
-{topics_text}
+Target curriculum topic:
+{topic_text}
 
 Interview history:
 {history_text}
 
-Questions already asked: {question_count}
+Next question number: {next_question_number}
 
 Generate the next adaptive technical interview question.
 """
@@ -265,6 +272,90 @@ Generate the next adaptive technical interview question.
     )
 
     return completion.choices[0].message.content
+
+def generate_final_feedback(
+    candidate: dict[str, Any],
+    interview_topics: list[dict[str, Any]],
+    messages: list[dict[str, Any]]
+):
+    member = candidate.get("member", {})
+
+    candidate_name = member.get("name", "Candidate")
+    job_role = member.get("jobRole", "Unknown")
+
+    topics_text = json.dumps(
+        interview_topics,
+        indent=2
+    )
+
+    history_text = json.dumps(
+        messages,
+        indent=2
+    )
+
+    system_prompt = """
+You are evaluating a completed technical interview for a
+31-day AI engineering cohort.
+
+Evaluate the candidate only from:
+- the provided curriculum topics
+- the interview questions
+- the candidate's answers
+
+Return valid JSON only.
+
+The JSON must have exactly this structure:
+
+{
+  "summary": "short overall evaluation",
+  "strengths": ["strength 1", "strength 2"],
+  "gaps": ["gap 1", "gap 2"],
+  "next": ["next step 1", "next step 2"]
+}
+
+Rules:
+- Be specific and constructive.
+- Base strengths and gaps on evidence from the interview.
+- Do not invent skills that were not discussed.
+- Keep each list concise.
+- Do not include markdown.
+- Do not include text outside the JSON object.
+"""
+
+    user_prompt = f"""
+Candidate: {candidate_name}
+Role: {job_role}
+
+Interview curriculum topics:
+{topics_text}
+
+Complete interview history:
+{history_text}
+
+Generate the final structured interview evaluation.
+"""
+
+    completion = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": user_prompt
+            }
+        ],
+        response_format={
+            "type": "json_object"
+        },
+        temperature=0.3
+    )
+
+    feedback_text = completion.choices[0].message.content
+
+    return json.loads(feedback_text)
 
 
 # -------------------------------------------------
@@ -297,20 +388,26 @@ def interview(request: InterviewRequest):
                 status_code=400,
                 detail="Candidate does not have enough curriculum topics"
             )
+        first_topic = get_topic_for_question(
+            interview_topics,
+            1
+    )
 
         first_question = generate_first_question(
             request.candidate,
-            interview_topics
-        )
+            first_topic
+       )
 
         sessions[session_id] = {
             "candidate": request.candidate,
             "curriculum": curriculum_data,
             "interview_topics": interview_topics,
+            "covered_days": [first_topic["day"]],
             "messages": [
                 {
                     "role": "interviewer",
-                    "content": first_question
+                    "content": first_question,
+                    "day": first_topic["day"]
                 }
             ],
             "question_count": 1
@@ -321,51 +418,82 @@ def interview(request: InterviewRequest):
             "done": False
         }
 
-    # ---------------------------------------------
+        # ---------------------------------------------
     # NORMAL INTERVIEW TURN
     # ---------------------------------------------
 
     if request.message is not None:
 
-       if session_id not in sessions:
+        if session_id not in sessions:
             raise HTTPException(
                 status_code=404,
                 detail="Session not found"
-           )
+            )
 
-       session = sessions[session_id]
+        session = sessions[session_id]
 
-       # Store the candidate's answer
-       session["messages"].append(
+        # Store the candidate's answer
+        session["messages"].append(
             {
                 "role": "candidate",
                 "content": request.message
             }
         )
 
-    # Generate the next adaptive question
-    follow_up_question = generate_follow_up_question(
-        session["candidate"],
-        session["interview_topics"],
-        session["messages"],
-        session["question_count"]
-     )
+        # Question 8 has already been asked.
+        # Save the answer, then stop generating new questions.
+        if session["question_count"] >= 8:
 
-    # Store the interviewer question
-    session["messages"].append(
-        {
-            "role": "interviewer",
-            "content": follow_up_question
+            feedback = generate_final_feedback(
+                session["candidate"],
+                session["interview_topics"],
+                session["messages"]
+           )
+
+            return {
+                "reply": "Interview completed.",
+                "done": True,
+                "feedback": feedback
+          }
+
+        # Decide which curriculum topic the next question must cover
+        next_question_number = session["question_count"] + 1
+
+        target_topic = get_topic_for_question(
+            session["interview_topics"],
+            next_question_number
+        )
+
+        # Generate the next adaptive question
+        follow_up_question = generate_follow_up_question(
+            session["candidate"],
+            target_topic,
+            session["messages"],
+            session["question_count"]
+        )
+
+        # Store the interviewer question
+        session["messages"].append(
+            {
+                "role": "interviewer",
+                "content": follow_up_question,
+                "day": target_topic["day"]
+            }
+        )
+
+        # Track which curriculum days have been covered
+        if target_topic["day"] not in session["covered_days"]:
+            session["covered_days"].append(
+                target_topic["day"]
+            )
+
+        # Increase question count
+        session["question_count"] += 1
+
+        return {
+            "reply": follow_up_question,
+            "done": False
         }
-    )
-
-    # Increase question count
-    session["question_count"] += 1
-
-    return {
-        "reply": follow_up_question,
-        "done": False
-    }
 
     # ---------------------------------------------
     # INVALID REQUEST

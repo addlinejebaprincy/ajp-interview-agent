@@ -112,3 +112,26 @@ Requirements:
 - Stored candidate answers and generated interviewer questions in the same session.
 - Incremented the question count after each generated question.
 - Verified that the second question adapts to the candidate's previous answer.
+
+## Interview Coverage and Completion Logic
+
+**Prompt:**
+
+Help me make the adaptive interview satisfy the hackathon requirements while preserving follow-up behavior.
+
+Requirements:
+- Ask exactly 8 interview questions.
+- Cover at least 4 different curriculum days.
+- Allow adaptive follow-up questions based on the candidate's previous answer.
+- Make Python control curriculum coverage instead of relying only on the LLM.
+- Stop after Question 8 and do not generate Question 9.
+- Return structured final feedback with summary, strengths, gaps, and next steps.
+- Add a zero-Groq test so the control logic can be verified without consuming API quota.
+
+**Implementation:**
+
+- Added deterministic topic assignment for 8 questions across 4 curriculum days.
+- Added curriculum-day tracking in the interview session.
+- Added stopping logic after Question 8.
+- Added structured final feedback generation.
+- Added a mock test that verifies question count, curriculum coverage, and final response structure without calling Groq.
