@@ -50,6 +50,64 @@ class InterviewRequest(BaseModel):
 
 
 # -------------------------------------------------
+# PERSONALIZATION
+# -------------------------------------------------
+
+def select_interview_topics(candidate: dict[str, Any]):
+
+    missions = candidate.get("missions", [])
+
+    if not missions:
+        return []
+
+    # Prioritize:
+    # 1. Skipped missions
+    # 2. Missions that needed more attempts
+    sorted_missions = sorted(
+        missions,
+        key=lambda mission: (
+            mission.get("skipped", False),
+            mission.get("attempts", 0)
+        ),
+        reverse=True
+    )
+
+    selected_missions = sorted_missions[:4]
+
+    selected_topics = []
+
+    for mission in selected_missions:
+
+        mission_day = mission.get("day")
+
+        curriculum_day = next(
+            (
+                day
+                for day in curriculum_data["days"]
+                if day["day"] == mission_day
+            ),
+            None
+        )
+
+        if curriculum_day is not None:
+
+            selected_topics.append(
+                {
+                    "day": curriculum_day["day"],
+                    "title": curriculum_day["title"],
+                    "type": curriculum_day["type"],
+                    "tools": curriculum_day["tools"],
+                    "objectives": curriculum_day["objectives"],
+                    "passed": mission.get("passed", False),
+                    "skipped": mission.get("skipped", False),
+                    "attempts": mission.get("attempts", 0)
+                }
+            )
+
+    return selected_topics
+
+
+# -------------------------------------------------
 # INTERVIEW ENDPOINT
 # -------------------------------------------------
 
@@ -70,20 +128,22 @@ def interview(request: InterviewRequest):
                 detail="Session already exists"
             )
 
+        interview_topics = select_interview_topics(
+            request.candidate
+        )
+
         sessions[session_id] = {
             "candidate": request.candidate,
-
-            # The curriculum is now connected
-            # to this interview session.
             "curriculum": curriculum_data,
-
+            "interview_topics": interview_topics,
             "messages": [],
             "question_count": 0
         }
 
         return {
             "reply": "Welcome. Let's begin your interview.",
-            "done": False
+            "done": False,
+            "topics": interview_topics
         }
 
     # ---------------------------------------------

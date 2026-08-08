@@ -37,4 +37,18 @@ Help me implement session handling for the interview API and connect the provide
 - Added basic error handling for invalid or missing sessions.
 
 **Implementation Decision:**  
-Used simple in-memory session storage for the MVP. Persistent memory and Breeth integration are deferred until the core interview flow is working.
+Used simple in-memory session storage for the MVP. Persistent memory and Breeth integration are deferred until the core interview flow is working. 
+
+## Candidate-Based Interview Personalization
+
+**Prompt:**  
+Help me use candidate mission history and the 31-day curriculum to select personalized interview topics.
+
+**AI Assistance:**  
+- Inspected the candidate mission and curriculum data structure.
+- Added logic to prioritize skipped topics and topics requiring more attempts.
+- Mapped candidate mission days to the full curriculum objectives.
+- Selected four curriculum days for the interview.
+
+**Implementation Decision:**  
+The MVP prioritizes weaker or skipped areas so candidates receive different interview topics based on their cohort performance.
