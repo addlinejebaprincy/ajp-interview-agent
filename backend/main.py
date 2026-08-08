@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -7,9 +9,39 @@ from pydantic import BaseModel
 app = FastAPI()
 
 
-# Temporary in-memory storage for interview sessions
+# -------------------------------------------------
+# FILE PATHS
+# -------------------------------------------------
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+CURRICULUM_PATH = BASE_DIR / "data" / "curriculum.json"
+CANDIDATES_PATH = BASE_DIR / "data" / "candidates.json"
+
+
+# -------------------------------------------------
+# LOAD JSON DATA
+# -------------------------------------------------
+
+def load_json(path: Path):
+    with open(path, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+curriculum_data = load_json(CURRICULUM_PATH)
+candidates_data = load_json(CANDIDATES_PATH)
+
+
+# -------------------------------------------------
+# TEMPORARY SESSION STORAGE
+# -------------------------------------------------
+
 sessions = {}
 
+
+# -------------------------------------------------
+# REQUEST MODEL
+# -------------------------------------------------
 
 class InterviewRequest(BaseModel):
     sessionId: str
@@ -17,12 +49,19 @@ class InterviewRequest(BaseModel):
     message: str | None = None
 
 
+# -------------------------------------------------
+# INTERVIEW ENDPOINT
+# -------------------------------------------------
+
 @app.post("/api/interview")
 def interview(request: InterviewRequest):
 
     session_id = request.sessionId
 
-    # START REQUEST
+    # ---------------------------------------------
+    # START INTERVIEW
+    # ---------------------------------------------
+
     if request.candidate is not None:
 
         if session_id in sessions:
@@ -33,6 +72,11 @@ def interview(request: InterviewRequest):
 
         sessions[session_id] = {
             "candidate": request.candidate,
+
+            # The curriculum is now connected
+            # to this interview session.
+            "curriculum": curriculum_data,
+
             "messages": [],
             "question_count": 0
         }
@@ -42,7 +86,10 @@ def interview(request: InterviewRequest):
             "done": False
         }
 
+    # ---------------------------------------------
     # NORMAL INTERVIEW TURN
+    # ---------------------------------------------
+
     if request.message is not None:
 
         if session_id not in sessions:
@@ -62,6 +109,10 @@ def interview(request: InterviewRequest):
             "reply": "Your answer has been recorded.",
             "done": False
         }
+
+    # ---------------------------------------------
+    # INVALID REQUEST
+    # ---------------------------------------------
 
     raise HTTPException(
         status_code=400,
