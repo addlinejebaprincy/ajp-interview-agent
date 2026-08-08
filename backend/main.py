@@ -5,8 +5,10 @@ from typing import Any
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
 from pydantic import BaseModel
+
 
 
 # -------------------------------------------------
@@ -35,6 +37,20 @@ groq_client = Groq(
 # -------------------------------------------------
 
 app = FastAPI()
+
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # -------------------------------------------------
@@ -418,7 +434,7 @@ def interview(request: InterviewRequest):
             "done": False
         }
 
-        # ---------------------------------------------
+    # ---------------------------------------------
     # NORMAL INTERVIEW TURN
     # ---------------------------------------------
 
