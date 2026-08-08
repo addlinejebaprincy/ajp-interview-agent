@@ -193,6 +193,79 @@ Ask the first technical interview question.
 
     return completion.choices[0].message.content
 
+def generate_follow_up_question(
+    candidate: dict[str, Any],
+    interview_topics: list[dict[str, Any]],
+    messages: list[dict[str, str]],
+    question_count: int
+):
+    member = candidate.get("member", {})
+
+    candidate_name = member.get("name", "Candidate")
+    job_role = member.get("jobRole", "Unknown")
+
+    topics_text = json.dumps(
+        interview_topics,
+        indent=2
+    )
+
+    history_text = json.dumps(
+        messages,
+        indent=2
+    )
+
+    system_prompt = """
+You are an adaptive technical interviewer for a 31-day AI engineering cohort.
+
+Your goal is to evaluate the candidate's real technical understanding.
+
+Use the candidate's previous answers to decide whether to:
+- ask a deeper follow-up question on the current topic, or
+- move to another selected curriculum topic.
+
+Rules:
+- Ask exactly ONE technical interview question.
+- Base questions only on the provided curriculum topics.
+- Adapt the difficulty based on the candidate's previous answers.
+- Cover the selected curriculum topics across the interview.
+- Do not provide the answer.
+- Do not give final feedback yet.
+- Do not explain your reasoning.
+- Return only the question text.
+"""
+
+    user_prompt = f"""
+Candidate: {candidate_name}
+Role: {job_role}
+
+Selected curriculum topics:
+{topics_text}
+
+Interview history:
+{history_text}
+
+Questions already asked: {question_count}
+
+Generate the next adaptive technical interview question.
+"""
+
+    completion = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt
+            },
+            {
+                "role": "user",
+                "content": user_prompt
+            }
+        ],
+        temperature=0.6
+    )
+
+    return completion.choices[0].message.content
+
 
 # -------------------------------------------------
 # INTERVIEW ENDPOINT
@@ -254,23 +327,45 @@ def interview(request: InterviewRequest):
 
     if request.message is not None:
 
-        if session_id not in sessions:
+       if session_id not in sessions:
             raise HTTPException(
                 status_code=404,
                 detail="Session not found"
-            )
+           )
 
-        sessions[session_id]["messages"].append(
+       session = sessions[session_id]
+
+       # Store the candidate's answer
+       session["messages"].append(
             {
                 "role": "candidate",
                 "content": request.message
             }
         )
 
-        return {
-            "reply": "Your answer has been recorded.",
-            "done": False
+    # Generate the next adaptive question
+    follow_up_question = generate_follow_up_question(
+        session["candidate"],
+        session["interview_topics"],
+        session["messages"],
+        session["question_count"]
+     )
+
+    # Store the interviewer question
+    session["messages"].append(
+        {
+            "role": "interviewer",
+            "content": follow_up_question
         }
+    )
+
+    # Increase question count
+    session["question_count"] += 1
+
+    return {
+        "reply": follow_up_question,
+        "done": False
+    }
 
     # ---------------------------------------------
     # INVALID REQUEST

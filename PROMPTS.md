@@ -85,3 +85,30 @@ Requirements:
 - Stored the generated interviewer question in session history.
 - Initialized the question count to 1 after the first question.
 - Updated the interviewer prompt to return only the question without exposing model reasoning.
+
+## Adaptive Follow-Up Questions
+
+**Prompt:**
+
+I have successfully integrated Groq and can generate the first personalized interview question using candidate data and selected curriculum topics.
+
+Now help me make the interview adaptive.
+
+Requirements:
+- Store each candidate answer in the existing interview session.
+- Use the previous interview questions and candidate answers as conversation context.
+- Generate exactly one follow-up question at a time.
+- If the candidate gives a weak or incomplete answer, ask a deeper question on the same topic.
+- If the candidate demonstrates good understanding, allow the interviewer to move to another selected curriculum topic.
+- Keep questions grounded only in the selected curriculum topics.
+- Track the number of questions asked.
+- Do not reveal reasoning or provide answers.
+- Avoid unnecessary Groq API calls while testing.
+
+**Implementation:**
+
+- Added adaptive follow-up question generation.
+- Passed session conversation history to Groq.
+- Stored candidate answers and generated interviewer questions in the same session.
+- Incremented the question count after each generated question.
+- Verified that the second question adapts to the candidate's previous answer.
