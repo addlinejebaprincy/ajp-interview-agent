@@ -101,7 +101,7 @@ function LandingPage({ onCandidateSelected, initialView = 'home' }) {
 
       <footer className="landing-footer page-shell">
         <span>Built for thoughtful technical assessment</span>
-        <span>Local demo · No data is sent</span>
+        <span>AI-powered interview . Secure backend connection</span>
       </footer>
     </main>
   )

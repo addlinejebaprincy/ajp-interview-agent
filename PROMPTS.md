@@ -796,3 +796,24 @@ Connect the existing React frontend to the existing FastAPI POST `/api/interview
 - Connected structured backend feedback to the final feedback screen.
 - Added loading, disabled-button, and retryable error states.
 - Verified the complete 8-question flow with a temporary zero-Groq mock server.
+
+## Deployment Preparation and Production Integration
+
+### Prompt
+
+Prepare the existing FastAPI and React application for deployment without redesigning or breaking the interview flow. Deploy FastAPI on Render and React on Vercel. Keep the Groq key backend-only, configure environment-based CORS, add a zero-Groq health endpoint, wake the free backend from the frontend, show a clear cold-start loading message, and preserve the candidate’s answer when API requests fail.
+
+### Implementation
+
+- Added the `FRONTEND_URL` backend environment setting for production CORS.
+- Added `GET /health` without any Groq usage.
+- Added a background frontend health request to wake the Render service.
+- Added a visible cold-start message while the interview is prepared.
+- Deployed FastAPI to Render.
+- Deployed React to Vercel.
+- Configured `GROQ_API_KEY` only on Render.
+- Configured `VITE_API_URL` on Vercel.
+- Configured the Vercel production URL on Render.
+- Verified the deployed landing page, favicon, candidate preview, and one real Question 1 request.
+- Deployed frontend: https://ajp-interview-agent.vercel.app
+- Deployed backend health: https://ajp-interview-agent.onrender.com/health

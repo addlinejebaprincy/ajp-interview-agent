@@ -22,13 +22,13 @@ function CandidatePreview({ candidate, onStart, onBack, isStarting, startError, 
           <span className="eyebrow">Profile ready</span>
           <h1>Meet your candidate.</h1>
           <p>
-            Review the learning-journey signals recorded across the 31-day cohort before starting the local interview demo.
+            Review the learning-journey signals recorded across the 31-day cohort before starting the adaptive technical interview.
           </p>
           <div className="preview-note">
             <span className="preview-note__icon" aria-hidden="true">✦</span>
             <div>
               <strong>Curriculum-grounded signals</strong>
-              <p>The real backend will later select the final 4 interview days. This preview summarizes mission history only.</p>
+              <p>The real backend selects four personalized interview days from this mission history.</p>
             </div>
           </div>
         </section>
