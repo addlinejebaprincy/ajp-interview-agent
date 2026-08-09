@@ -780,3 +780,19 @@ Stop after the frontend data integration and build verification.
 - Custom Candidate uses actual curriculum topics.
 - Preserved responsive UI.
 - Kept the interview mocked; no Groq/FastAPI integration was added during this step.
+
+## Frontend and FastAPI Integration
+
+### Prompt
+
+Connect the existing React frontend to the existing FastAPI POST `/api/interview` endpoint without redesigning the UI. Use a frontend-generated `sessionId`, send the selected candidate when starting, send each candidate answer as `message`, display adaptive questions, and show structured final feedback using `summary`, `strengths`, `gaps`, and `next`. Add loading and retryable error states, keep the Groq key backend-only, and avoid unnecessary Groq calls during testing.
+
+### Implementation
+
+- Added a dedicated frontend API service.
+- Converted frontend candidate data into the backend request format.
+- Replaced local mock interview behavior with real API requests.
+- Added question number, curriculum day, and topic metadata to backend responses.
+- Connected structured backend feedback to the final feedback screen.
+- Added loading, disabled-button, and retryable error states.
+- Verified the complete 8-question flow with a temporary zero-Groq mock server.

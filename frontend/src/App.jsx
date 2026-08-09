@@ -4,19 +4,70 @@ import CandidatePreview from './components/CandidatePreview'
 import FeedbackPanel from './components/FeedbackPanel'
 import InterviewChat from './components/InterviewChat'
 import LandingPage from './components/LandingPage'
+import { toInterviewCandidate } from './data/candidateData'
+import { startInterview } from './services/interviewApi'
 
 function App() {
   const [screen, setScreen] = useState('landing')
   const [landingView, setLandingView] = useState('home')
   const [candidate, setCandidate] = useState(null)
+  const [sessionId, setSessionId] = useState(null)
+  const [initialQuestion, setInitialQuestion] = useState(null)
+  const [feedback, setFeedback] = useState(null)
+  const [coveredTopics, setCoveredTopics] = useState([])
+  const [isStarting, setIsStarting] = useState(false)
+  const [startError, setStartError] = useState('')
 
   const selectCandidate = (selectedCandidate) => {
     setCandidate(selectedCandidate)
     setScreen('preview')
+    setStartError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const handleStartInterview = async () => {
+    if (!candidate || isStarting) return
+
+    setIsStarting(true)
+    setStartError('')
+
+    const newSessionId = crypto.randomUUID()
+
+    try {
+      const response = await startInterview(
+        newSessionId,
+        toInterviewCandidate(candidate)
+      )
+
+      setSessionId(newSessionId)
+      setInitialQuestion({
+        ...response.question,
+        question: response.reply,
+      })
+      setScreen('interview')
+    } catch (error) {
+      setStartError(error.message)
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
+  const completeInterview = (finalFeedback, topics) => {
+    setFeedback(finalFeedback)
+    setCoveredTopics(topics)
+    setScreen('feedback')
+  }
+
+  const resetInterview = () => {
+    setSessionId(null)
+    setInitialQuestion(null)
+    setFeedback(null)
+    setCoveredTopics([])
+    setStartError('')
+  }
+
   const returnHome = () => {
+    resetInterview()
     setLandingView('home')
     setScreen('landing')
     setCandidate(null)
@@ -24,6 +75,7 @@ function App() {
   }
 
   const tryAnother = () => {
+    resetInterview()
     setLandingView('choose')
     setScreen('landing')
     setCandidate(null)
@@ -35,23 +87,40 @@ function App() {
       <CandidatePreview
         candidate={candidate}
         onBack={returnHome}
-        onStart={() => setScreen('interview')}
+        onStart={handleStartInterview}
+        isStarting={isStarting}
+        startError={startError}
       />
     )
   }
 
-  if (screen === 'interview' && candidate) {
+  if (
+    screen === 'interview' &&
+    candidate &&
+    sessionId &&
+    initialQuestion
+  ) {
     return (
       <InterviewChat
         candidate={candidate}
-        onComplete={() => setScreen('feedback')}
+        sessionId={sessionId}
+        initialQuestion={initialQuestion}
+        onComplete={completeInterview}
         onExit={returnHome}
       />
     )
   }
 
-  if (screen === 'feedback' && candidate) {
-    return <FeedbackPanel candidate={candidate} onTryAnother={tryAnother} onHome={returnHome} />
+  if (screen === 'feedback' && candidate && feedback) {
+    return (
+      <FeedbackPanel
+        candidate={candidate}
+        feedback={feedback}
+        coveredTopics={coveredTopics}
+        onTryAnother={tryAnother}
+        onHome={returnHome}
+      />
+    )
   }
 
   return (

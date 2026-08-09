@@ -139,3 +139,27 @@ export function createCustomCandidate({ form, selectedHistory }) {
 }
 
 export const demoCandidate = candidates.find((candidate) => candidate.id === 'CAND-001')
+
+export function toInterviewCandidate(candidate) {
+  const missions = candidate.allSignals.map((signal) => ({
+    day: signal.day,
+    title: signal.title,
+    passed: !['failed', 'skipped'].includes(signal.status),
+    skipped: signal.status === 'skipped',
+    attempts:
+      signal.status === 'attempts'
+        ? Math.max(signal.attempts ?? 2, 2)
+        : 1,
+  }))
+
+  return {
+    member: {
+      id: candidate.id,
+      name: candidate.name,
+      jobRole: candidate.role,
+      yearsExperience: candidate.experience,
+      education: candidate.education,
+    },
+    missions,
+  }
+}

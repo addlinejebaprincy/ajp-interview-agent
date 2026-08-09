@@ -1,48 +1,98 @@
 import { useEffect, useRef, useState } from 'react'
-import { mockCoverageDays, mockQuestions } from '../data/mockInterview'
+import { submitInterviewAnswer } from '../services/interviewApi'
 import LoadingState from './LoadingState'
 import ProgressBar from './ProgressBar'
 
-function InterviewChat({ candidate, onComplete, onExit }) {
-  const [currentIndex, setCurrentIndex] = useState(0)
+function InterviewChat({
+  candidate,
+  sessionId,
+  initialQuestion,
+  onComplete,
+  onExit,
+}) {
+  const [currentQuestion, setCurrentQuestion] = useState(initialQuestion)
   const [answer, setAnswer] = useState('')
   const [transcript, setTranscript] = useState([])
+  const [coveredTopics, setCoveredTopics] = useState([
+    {
+      day: initialQuestion.day,
+      title: initialQuestion.topic,
+    },
+  ])
   const [isLoading, setIsLoading] = useState(false)
-  const timerRef = useRef(null)
+  const [error, setError] = useState('')
   const answerRef = useRef(null)
-  const currentQuestion = mockQuestions[currentIndex]
-
-  useEffect(() => () => clearTimeout(timerRef.current), [])
 
   useEffect(() => {
     if (!isLoading) answerRef.current?.focus()
-  }, [currentIndex, isLoading])
+  }, [currentQuestion, isLoading])
 
-  const submitAnswer = (event) => {
+  const submitAnswer = async (event) => {
     event.preventDefault()
+
     const cleanAnswer = answer.trim()
+
     if (!cleanAnswer || isLoading) return
 
-    const nextTranscript = [
-      ...transcript,
-      { question: currentQuestion.question, day: currentQuestion.day, topic: currentQuestion.topic, answer: cleanAnswer },
-    ]
-    setTranscript(nextTranscript)
-    setAnswer('')
     setIsLoading(true)
+    setError('')
 
-    timerRef.current = setTimeout(() => {
-      if (currentIndex === mockQuestions.length - 1) {
-        onComplete(nextTranscript)
+    try {
+      const response = await submitInterviewAnswer(
+        sessionId,
+        cleanAnswer
+      )
+
+      const nextTranscript = [
+        ...transcript,
+        {
+          question: currentQuestion.question,
+          day: currentQuestion.day,
+          topic: currentQuestion.topic,
+          answer: cleanAnswer,
+        },
+      ]
+
+      setTranscript(nextTranscript)
+      setAnswer('')
+
+      if (response.done) {
+        onComplete(response.feedback, coveredTopics)
         return
       }
-      setCurrentIndex((index) => index + 1)
+
+      const nextQuestion = {
+        ...response.question,
+        question: response.reply,
+      }
+
+      setCurrentQuestion(nextQuestion)
+
+      setCoveredTopics((topics) => {
+        if (topics.some((topic) => topic.day === nextQuestion.day)) {
+          return topics
+        }
+
+        return [
+          ...topics,
+          {
+            day: nextQuestion.day,
+            title: nextQuestion.topic,
+          },
+        ]
+      })
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
       setIsLoading(false)
-    }, 900)
+    }
   }
 
   const handleKeyDown = (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    if (
+      (event.metaKey || event.ctrlKey) &&
+      event.key === 'Enter'
+    ) {
       submitAnswer(event)
     }
   }
@@ -52,35 +102,66 @@ function InterviewChat({ candidate, onComplete, onExit }) {
       <header className="interview-header">
         <div className="interview-header__inner page-shell">
           <div className="brand brand--compact">
-            <span className="brand-mark" aria-hidden="true"><span /></span>
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+            </span>
             <span>AI Interview Agent</span>
           </div>
+
           <div className="interview-candidate">
-            <span className={`avatar avatar--small avatar--${candidate.accent}`} aria-hidden="true">{candidate.initials}</span>
-            <span><strong>{candidate.name}</strong><small>{candidate.role}</small></span>
+            <span
+              className={`avatar avatar--small avatar--${candidate.accent}`}
+              aria-hidden="true"
+            >
+              {candidate.initials}
+            </span>
+            <span>
+              <strong>{candidate.name}</strong>
+              <small>{candidate.role}</small>
+            </span>
           </div>
-          <button className="exit-button" type="button" onClick={onExit}>Exit demo</button>
+
+          <button
+            className="exit-button"
+            type="button"
+            onClick={onExit}
+          >
+            Exit demo
+          </button>
         </div>
       </header>
 
       <div className="interview-progress page-shell">
-        <ProgressBar current={currentIndex + 1} total={mockQuestions.length} />
+        <ProgressBar current={currentQuestion.number} total={8} />
       </div>
 
       <div className="interview-layout page-shell">
-        <section className="interview-main" aria-labelledby="current-question-title">
+        <section
+          className="interview-main"
+          aria-labelledby="current-question-title"
+        >
           <div className="interviewer-heading">
-            <span className="ai-avatar" aria-hidden="true"><i /></span>
+            <span className="ai-avatar" aria-hidden="true">
+              <i />
+            </span>
             <div>
               <strong>Ari</strong>
-              <span><i aria-hidden="true" /> AI interviewer · Listening</span>
+              <span>
+                <i aria-hidden="true" /> AI interviewer · Listening
+              </span>
             </div>
           </div>
 
           {transcript.length > 0 && (
-            <div className="conversation-history" aria-label="Recent responses">
+            <div
+              className="conversation-history"
+              aria-label="Recent responses"
+            >
               {transcript.slice(-2).map((entry, index) => (
-                <details className="answer-message" key={`${entry.topic}-${transcript.length - index}`}>
+                <details
+                  className="answer-message"
+                  key={`${entry.topic}-${transcript.length - index}`}
+                >
                   <summary>
                     <span>Your answer · {entry.topic}</span>
                     <span aria-hidden="true">⌄</span>
@@ -92,39 +173,78 @@ function InterviewChat({ candidate, onComplete, onExit }) {
           )}
 
           {isLoading ? (
-            <LoadingState isComplete={currentIndex === mockQuestions.length - 1} />
+            <LoadingState isComplete={currentQuestion.number === 8} />
           ) : (
-            <div className="question-stage" key={currentQuestion.id}>
+            <div
+              className="question-stage"
+              key={currentQuestion.number}
+            >
               <div className="question-card glass-panel">
                 <div className="question-tags">
-                  <span>Day {currentQuestion.day} · {currentQuestion.topic}</span>
-                  <span>{currentQuestion.difficulty}</span>
+                  <span>
+                    Day {currentQuestion.day} · {currentQuestion.topic}
+                  </span>
+                  <span>
+                    {currentQuestion.number % 2 === 0
+                      ? 'Adaptive follow-up'
+                      : 'Curriculum question'}
+                  </span>
                 </div>
-                <h1 id="current-question-title">{currentQuestion.question}</h1>
+
+                <h1 id="current-question-title">
+                  {currentQuestion.question}
+                </h1>
+
                 <div className="adaptive-cue">
                   <span aria-hidden="true">✦</span>
-                  {currentQuestion.adaptiveCue}
+                  {currentQuestion.number % 2 === 0
+                    ? 'Follow-up based on your previous reasoning'
+                    : 'Question grounded in your learning journey'}
                 </div>
               </div>
 
-              <form className="answer-form" onSubmit={submitAnswer}>
-                <label htmlFor="interview-answer">Your answer</label>
+              <form
+                className="answer-form"
+                onSubmit={submitAnswer}
+              >
+                <label htmlFor="interview-answer">
+                  Your answer
+                </label>
+
                 <div className="textarea-wrap">
                   <textarea
                     id="interview-answer"
                     ref={answerRef}
                     value={answer}
-                    onChange={(event) => setAnswer(event.target.value)}
+                    onChange={(event) =>
+                      setAnswer(event.target.value)
+                    }
                     onKeyDown={handleKeyDown}
                     placeholder="Think aloud. Explain your approach, trade-offs, and what you would verify..."
                     rows="6"
                     required
                   />
-                  <span className="character-count">{answer.length} characters</span>
+                  <span className="character-count">
+                    {answer.length} characters
+                  </span>
                 </div>
+
+                {error && (
+                  <p className="local-note" role="alert">
+                    {error} Your answer was preserved. Please try again.
+                  </p>
+                )}
+
                 <div className="answer-actions">
-                  <span><kbd>⌘</kbd> + <kbd>Enter</kbd> to submit</span>
-                  <button className="button button--primary" type="submit" disabled={!answer.trim()}>
+                  <span>
+                    <kbd>⌘</kbd> + <kbd>Enter</kbd> to submit
+                  </span>
+
+                  <button
+                    className="button button--primary"
+                    type="submit"
+                    disabled={!answer.trim() || isLoading}
+                  >
                     Submit Answer <span aria-hidden="true">→</span>
                   </button>
                 </div>
@@ -133,31 +253,69 @@ function InterviewChat({ candidate, onComplete, onExit }) {
           )}
         </section>
 
-        <aside className="coverage-panel glass-panel" aria-labelledby="coverage-title">
+        <aside
+          className="coverage-panel glass-panel"
+          aria-labelledby="coverage-title"
+        >
           <div className="coverage-panel__heading">
             <span className="eyebrow">Live map</span>
             <h2 id="coverage-title">Curriculum coverage</h2>
           </div>
+
           <div className="coverage-list">
-            {mockCoverageDays.map((topic) => {
-              const answered = transcript.filter((entry) => entry.day === topic.day).length
-              const isActive = !isLoading && currentQuestion.day === topic.day
+            {coveredTopics.map((topic) => {
+              const answered = transcript.filter(
+                (entry) => entry.day === topic.day
+              ).length
+
+              const isActive =
+                !isLoading &&
+                currentQuestion.day === topic.day
+
               const isComplete = answered === 2
+
               return (
-                <div className={`coverage-item${isActive ? ' is-active' : ''}${isComplete ? ' is-complete' : ''}`} key={topic.day}>
+                <div
+                  className={`coverage-item${
+                    isActive ? ' is-active' : ''
+                  }${isComplete ? ' is-complete' : ''}`}
+                  key={topic.day}
+                >
                   <div className="coverage-item__top">
-                    <span className="coverage-number">Day {topic.day}</span>
-                    <span className="coverage-name">{topic.title}</span>
-                    <span className="coverage-state">{isComplete ? 'Done' : isActive ? 'Active' : `${answered}/2`}</span>
+                    <span className="coverage-number">
+                      Day {topic.day}
+                    </span>
+                    <span className="coverage-name">
+                      {topic.title}
+                    </span>
+                    <span className="coverage-state">
+                      {isComplete
+                        ? 'Done'
+                        : isActive
+                          ? 'Active'
+                          : `${answered}/2`}
+                    </span>
                   </div>
-                  <div className="mini-progress"><span style={{ width: `${answered * 50}%` }} /></div>
+
+                  <div className="mini-progress">
+                    <span
+                      style={{
+                        width: `${Math.min(answered, 2) * 50}%`,
+                      }}
+                    />
+                  </div>
                 </div>
               )
             })}
           </div>
+
           <div className="coverage-insight">
             <span aria-hidden="true">◎</span>
-            <p><strong>Local simulation</strong> These 4 official curriculum days keep the full UI testable without calling the backend.</p>
+            <p>
+              <strong>Adaptive interview</strong> Questions are
+              generated from the candidate’s curriculum history and
+              previous answers.
+            </p>
           </div>
         </aside>
       </div>

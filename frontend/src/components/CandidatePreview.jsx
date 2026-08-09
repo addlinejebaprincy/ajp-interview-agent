@@ -1,6 +1,6 @@
 import { learningStatuses } from '../data/candidateData'
 
-function CandidatePreview({ candidate, onStart, onBack }) {
+function CandidatePreview({ candidate, onStart, onBack, isStarting, startError, }) {
   const attentionAreas = candidate.attentionAreas.slice(0, 3)
 
   return (
@@ -98,10 +98,25 @@ function CandidatePreview({ candidate, onStart, onBack }) {
             </div>
           )}
 
-          <button className="button button--primary button--full" type="button" onClick={onStart}>
-            Start Interview <span aria-hidden="true">→</span>
+          <button
+            className="button button--primary button--full"
+            type="button"
+            onClick={onStart}
+            disabled={isStarting}
+          >
+            {isStarting ? 'Preparing Interview...' : 'Start Interview'}
+            {!isStarting && <span aria-hidden="true"> →</span>}
           </button>
-          <p className="local-note">Mock interview · No responses leave this device</p>
+
+          {startError ? (
+            <p className="local-note" role="alert">
+              {startError} Check that FastAPI is running, then try again.
+            </p>
+          ) : (
+            <p className="local-note">
+              AI-powered interview · Answers are sent securely to the backend
+            </p>
+          )}
         </section>
       </div>
     </main>

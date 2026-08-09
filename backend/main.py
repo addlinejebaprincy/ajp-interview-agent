@@ -431,7 +431,12 @@ def interview(request: InterviewRequest):
 
         return {
             "reply": first_question,
-            "done": False
+            "done": False,
+            "question": {
+                "number": 1,
+                "day": first_topic["day"],
+                "topic": first_topic["title"]
+            }
         }
 
     # ---------------------------------------------
@@ -508,7 +513,12 @@ def interview(request: InterviewRequest):
 
         return {
             "reply": follow_up_question,
-            "done": False
+            "done": False,
+            "question": {
+                "number": session["question_count"],
+                "day": target_topic["day"],
+                "topic": target_topic["title"]
+            }
         }
 
     # ---------------------------------------------
