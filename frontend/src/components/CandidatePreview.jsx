@@ -110,7 +110,12 @@ function CandidatePreview({ candidate, onStart, onBack, isStarting, startError, 
 
           {startError ? (
             <p className="local-note" role="alert">
-              {startError} Check that FastAPI is running, then try again.
+              {startError} Please try again in a moment.
+            </p>
+          ) : isStarting ? (
+            <p className="local-note" role="status">
+              Preparing your personalized interview. The server may
+              take up to a minute to wake up.
             </p>
           ) : (
             <p className="local-note">

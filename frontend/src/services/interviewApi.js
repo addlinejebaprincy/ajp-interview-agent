@@ -1,6 +1,14 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
+export async function wakeInterviewService() {
+  try {
+    await fetch(`${API_BASE_URL}/health`)
+  } catch {
+    // The visible Start Interview error handles unavailable backends.
+  }
+}
+
 async function sendInterviewRequest(body) {
   const response = await fetch(`${API_BASE_URL}/api/interview`, {
     method: 'POST',

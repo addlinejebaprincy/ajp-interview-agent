@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import CandidatePreview from './components/CandidatePreview'
 import FeedbackPanel from './components/FeedbackPanel'
 import InterviewChat from './components/InterviewChat'
 import LandingPage from './components/LandingPage'
 import { toInterviewCandidate } from './data/candidateData'
-import { startInterview } from './services/interviewApi'
+import {
+  startInterview,
+  wakeInterviewService,
+} from './services/interviewApi'
 
 function App() {
   const [screen, setScreen] = useState('landing')
@@ -17,6 +20,9 @@ function App() {
   const [coveredTopics, setCoveredTopics] = useState([])
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState('')
+    useEffect(() => {
+    wakeInterviewService()
+  }, [])
 
   const selectCandidate = (selectedCandidate) => {
     setCandidate(selectedCandidate)

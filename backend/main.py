@@ -18,6 +18,7 @@ from pydantic import BaseModel
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY is not set")
@@ -44,6 +45,9 @@ origins = [
     "http://127.0.0.1:5173",
 ]
 
+if FRONTEND_URL:
+    origins.append(FRONTEND_URL.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -51,6 +55,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "AJP Interview Agent API"
+    }
 
 
 # -------------------------------------------------
